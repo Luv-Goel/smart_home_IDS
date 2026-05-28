@@ -1,0 +1,32 @@
+# ARM64 specific overrides for Raspberry Pi
+
+services:
+  postgres:
+    # Use standard Postgres on ARM64 instead of Alpine to avoid some compatibility issues,
+    # or ensure you use a multi-arch alpine build
+    image: postgres:15
+    deploy:
+      resources:
+        limits:
+          memory: 1G # Allow a bit more on a 4GB/8GB Pi if necessary, or restrict further for 2GB model
+
+  mosquitto:
+    # Explicit platform for safety, though docker should auto-resolve
+    platform: linux/arm64
+
+  backend:
+    platform: linux/arm64
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.backend
+      args:
+        - TARGETARCH=arm64
+
+  frontend:
+    platform: linux/arm64
+
+  websocket-gateway:
+    platform: linux/arm64
+
+  redis:
+    platform: linux/arm64

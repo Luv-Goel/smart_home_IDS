@@ -1,12 +1,10 @@
 # Build stage
 FROM python:3.11-slim as builder
 
-# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up poetry
 RUN pip install --no-cache-dir poetry==1.6.1
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_IN_PROJECT=1 \
@@ -15,41 +13,33 @@ ENV POETRY_NO_INTERACTION=1 \
 
 WORKDIR /app
 
-# Copy dependency files
 COPY pyproject.toml ./
-# COPY poetry.lock ./  # Uncomment if poetry.lock exists
+# COPY poetry.lock ./
 
-# Install dependencies (only main)
 RUN poetry install --without dev --no-root
 
 # Run stage
 FROM python:3.11-slim as runtime
 
-# Install runtime dependencies (e.g., libpq for psycopg2 if used)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Create a non-root user
 RUN adduser --system --group appuser && chown appuser:appuser /app
 USER appuser
 
-# Copy virtual environment from builder
 ENV VIRTUAL_ENV=/app/.venv
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-# Copy application code
-COPY --chown=appuser:appuser apps/backend/ ./apps/backend/
+COPY --chown=appuser:appuser services/websocket-gateway/ ./services/websocket-gateway/
 COPY --chown=appuser:appuser packages/ ./packages/
 
-# Set environment variables
 ENV PYTHONPATH="/app"
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 8000
+EXPOSE 8001
 
-# Command to run the application
-CMD ["uvicorn", "apps.backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "services.websocket-gateway.main:app", "--host", "0.0.0.0", "--port", "8001"]
