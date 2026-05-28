@@ -1,0 +1,14 @@
+feat: build MQTT infrastructure module for edge AI IoT IDS
+
+Implement a reusable MQTT infrastructure package in `shared/mqtt/` that supports:
+- async publishing
+- async subscribing
+- reconnect logic
+- exponential backoff
+- topic registry
+- TLS support
+- auth support
+- graceful shutdown
+- message serialization (JSON handling)
+
+It includes configuration parsing via Pydantic v2 and is tested using pytest and pytest-asyncio with >80% test coverage.

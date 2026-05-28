@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "shared-mqtt"
+version = "0.1.0"
+description = "MQTT infrastructure package for Smart Home IDS"
+authors = ["IDS Team"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+asyncio-mqtt = "^0.16.2" # or aiomqtt depending on version, let's use aiomqtt which is newer fork
+aiomqtt = "^2.0.0"
+pydantic = "^2.5.0"
+structlog = "^23.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-asyncio = "^0.21.1"
+pytest-cov = "^7.1.0"
+mypy = "^2.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
