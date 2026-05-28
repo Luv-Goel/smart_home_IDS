@@ -1,12 +1,16 @@
 [tool.poetry]
-name = "smart-home-ids-monorepo"
+name = "ids-mqtt"
 version = "0.1.0"
-description = "Lightweight Network-Centric IoT Intrusion Detection System (IDS) for Edge AI on Raspberry Pi"
+description = "MQTT client wrapper for Smart Home IDS"
 authors = ["Security Team <security@smarthome.ids>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+paho-mqtt = "^2.0"
+pydantic = "^2.0"
+ids-core = { path = "../ids-core", develop = true }
+ids-schemas = { path = "../ids-schemas", develop = true }
 
 [build-system]
 requires = ["poetry-core"]

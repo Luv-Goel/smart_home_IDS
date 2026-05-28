@@ -1,0 +1,87 @@
+name: Lint
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          pip install black ruff mypy
+
+      - name: Run formatter check
+        run: |
+          black --check --diff apps/backend/src/ services/*/src/
+
+      - name: Run linter
+        run: |
+          ruff check apps/backend/src/ services/*/src/
+
+      - name: Run type checking
+        run: |
+          mypy apps/backend/src/ services/*/src/
+
+  lint-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: |
+          cd apps/frontend
+          npm ci
+
+      - name: Run ESLint
+        run: |
+          cd apps/frontend
+          npm run lint
+
+      - name: Run TypeScript check
+        run: |
+          cd apps/frontend
+          npx tsc --noEmit
+
+  lint-configs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate YAML files
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const yaml = require('js-yaml');
+
+            const files = [
+              'infra/docker/docker-compose.yml',
+              '.github/workflows/*.yml'
+            ];
+
+            files.forEach(file => {
+              try {
+                const content = fs.readFileSync(file, 'utf8');
+                yaml.load(content);
+              } catch (e) {
+                core.setFailed(`Invalid YAML in ${file}: ${e.message}`);
+              }
+            });

@@ -1,0 +1,57 @@
+# Smart Home IDS Edge Service Dockerfile
+FROM python:3.11-slim-bookworm AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /build
+
+# Copy requirements
+COPY services/*/src/*/requirements.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r packet-capture-service/requirements.txt
+RUN pip install --no-cache-dir -r feature-extraction-service/requirements.txt
+RUN pip install --no-cache-dir -r ml-inference-service/requirements.txt
+
+# Final stage
+FROM python:3.11-slim-bookworm
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpcap-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy installed packages
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
+# Copy application code
+COPY services/packet-capture-service/src/ ./packet_capture_service/
+COPY services/feature-extraction-service/src/ ./feature_extraction_service/
+COPY services/ml-inference-service/src/ ./ml_inference_service/
+COPY packages/ids-core/src/ ./ids_core/
+COPY packages/ids-schemas/src/ ./ids_schemas/
+COPY packages/ids-mqtt/src/ ./ids_mqtt/
+
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Expose ports
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+# Set entry point
+ENTRYPOINT ["python", "-m", "packet_capture_service.main"]

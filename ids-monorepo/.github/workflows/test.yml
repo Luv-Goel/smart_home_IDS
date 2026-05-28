@@ -1,0 +1,77 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          cd apps/backend
+          poetry install
+
+      - name: Run linting
+        run: |
+          cd apps/backend
+          poetry run ruff check src/backend/
+
+      - name: Run type checking
+        run: |
+          cd apps/backend
+          poetry run mypy src/backend/
+
+      - name: Run tests
+        run: |
+          cd apps/backend
+          poetry run pytest tests/ -v --cov=src/backend --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./apps/backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+
+  test-edge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          cd services/packet-capture-service
+          poetry install
+          cd ../feature-extraction-service
+          poetry install
+          cd ../ml-inference-service
+          poetry install
+
+      - name: Run tests
+        run: |
+          cd services/packet-capture-service
+          poetry run pytest tests/ -v
+          cd ../feature-extraction-service
+          poetry run pytest tests/ -v
+          cd ../ml-inference-service
+          poetry run pytest tests/ -v

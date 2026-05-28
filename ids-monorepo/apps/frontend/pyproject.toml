@@ -1,0 +1,20 @@
+[project]
+name = "smart-home-ids-frontend"
+version = "0.1.0"
+description = "React dashboard for Smart Home IDS"
+authors = ["Security Team <security@smarthome.ids>"]
+license = "MIT"
+
+[tool.poetry]
+name = "ids-frontend"
+version = "0.1.0"
+description = "React dashboard for Smart Home IDS"
+authors = ["Security Team <security@smarthome.ids>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
