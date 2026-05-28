@@ -1,12 +1,15 @@
 [tool.poetry]
-name = "smart-home-ids-monorepo"
+name = "ids-core"
 version = "0.1.0"
-description = "Lightweight Network-Centric IoT Intrusion Detection System (IDS) for Edge AI on Raspberry Pi"
+description = "Core utilities and base classes for Smart Home IDS"
 authors = ["Security Team <security@smarthome.ids>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pydantic = "^2.0"
+structlog = "^23.1"
+aiofiles = "^23.2"
 
 [build-system]
 requires = ["poetry-core"]

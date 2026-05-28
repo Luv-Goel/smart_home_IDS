@@ -1,0 +1,154 @@
+# Smart Home IDS Docker Compose Configuration
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ids-postgres
+    environment:
+      POSTGRES_USER: idsteam
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: ids
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - ids-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idsteam"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # RedisCache
+  redis:
+    image: redis:7-alpine
+    container_name: ids-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ids-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2-alpine
+    container_name: ids-mosquitto
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - ids-network
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "test", "-h", "localhost", "-p", "1883", "-m", "test"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  # Backend API
+  backend:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.backend
+    container_name: ids-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://idsteam:password@postgres:5432/ids
+      - REDIS_URL=redis://redis:6379/0
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - APP_ENV=production
+    networks:
+      - ids-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # WebSocket Gateway
+  websocket-gateway:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.websocket
+    container_name: ids-websocket-gateway
+    ports:
+      - "8001:8001"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - APP_ENV=production
+    networks:
+      - ids-network
+    depends_on:
+      redis:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Frontend
+  frontend:
+    build:
+      context: ../../
+      dockerfile: infra/docker/Dockerfile.frontend
+    container_name: ids-frontend
+    ports:
+      - "5173:5173"
+    networks:
+      - ids-network
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+networks:
+  ids-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "feature-extraction-service"
+version = "0.1.0"
+description = "Feature extraction service for edge IoT IDS"
+authors = ["Security Team <security@smarthome.ids>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+scapy = "^2.5.0"
+paho-mqtt = "^2.0"
+pydantic = "^2.0"
+redis = "^5.0"
+numpy = "^1.26.0"
+ids-core = { path = "../../packages/ids-core", develop = true }
+ids-schemas = { path = "../../packages/ids-schemas", develop = true }
+ids-mqtt = { path = "../../packages/ids-mqtt", develop = true }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
