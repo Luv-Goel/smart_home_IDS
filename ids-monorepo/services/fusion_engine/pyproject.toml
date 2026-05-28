@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "fusion-engine"
+version = "0.1.0"
+description = "Fusion Engine for edge IoT IDS"
+authors = ["Security Team <security@smarthome.ids>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = "^2.0"
+numpy = "^1.26.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
