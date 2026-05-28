@@ -1,0 +1,21 @@
+app:
+  name: "Smart Home IDS (Edge - Raspberry Pi)"
+  debug: false
+  log_level: "WARNING"
+  reload: false
+
+database:
+  url: "sqlite+aiosqlite:///data/ids_edge.db"
+  pool_size: 1
+  max_overflow: 0
+
+mqtt:
+  broker_url: "mqtt://localhost:1883"
+  client_id: "ids-core-edge"
+  keepalive: 60
+
+inference:
+  model_path: "models/ids_model_edge_quantized.tflite"
+  device: "cpu"
+  batch_size: 1
+  num_threads: 2 # Optimization for Raspberry Pi
