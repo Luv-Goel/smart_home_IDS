@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: ids-mosquitto
+    ports:
+      - "1883:1883"      # MQTT
+      - "9001:9001"      # WebSocket
+    volumes:
+      - ./infra/mosquitto/config/mosquitto.conf.example:/mosquitto/config/mosquitto.conf
+      - mosquitto-data:/mosquitto/data
+      - mosquitto-log:/mosquitto/log
+    restart: unless-stopped
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ids-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: ids-postgres
+    environment:
+      POSTGRES_DB: ids
+      POSTGRES_USER: idsteam
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  # ML Inference Service
+  ml-inference:
+    build:
+      context: ./services/ml-inference-service
+      dockerfile: Dockerfile
+    container_name: ids-ml-inference
+    ports:
+      - "8002:8002"
+    environment:
+      - ML_INFERENCE_MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - ML_INFERENCE_REDIS_URL=redis://redis:6379/0
+      - ML_INFERENCE_NODE_ID=ml-inference-01
+      - ML_INFERENCE_DEBUG=false
+    volumes:
+      - ./var/models:/var/models
+    depends_on:
+      - mosquitto
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Fusion Engine Service
+  fusion-engine:
+    build:
+      context: ./services/fusion-engine-service
+    container_name: ids-fusion-engine
+    ports:
+      - "8003:8003"
+    environment:
+      - FUSION_ENGINE_MQTT_BROKER_URL=mqtt://mosquitto:1883
+      - FUSION_ENGINE_NODE_ID=fusion-engine-01
+      - FUSION_ENGINE_DEBUG=false
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./apps/backend
+    container_name: ids-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://idsteam:password@postgres:5432/ids
+      - REDIS_URL=redis://redis:6379/0
+      - MQTT_BROKER_URL=mqtt://mosquitto:1883
+    depends_on:
+      - postgres
+      - redis
+      - mosquitto
+    restart: unless-stopped
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./apps/frontend
+    container_name: ids-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000/ws
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Prometheus Metrics
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: ids-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana Dashboard
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ids-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  mosquitto-data:
+  mosquitto-log:
+  redis-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
