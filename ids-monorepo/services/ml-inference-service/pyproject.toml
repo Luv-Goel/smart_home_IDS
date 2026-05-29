@@ -1,0 +1,73 @@
+[tool.poetry]
+name = "ml-inference-service"
+version = "0.1.0"
+description = "Real-time ML inference service for Smart Home IDS"
+authors = ["Security Team <security@smarthome.ids>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# Core dependencies
+fastapi = "^0.104.0"
+uvicorn = {extras = ["standard"], version = "^0.24.0"}
+pydantic = "^2.0"
+pydantic-settings = "^2.0"
+
+# ML dependencies
+numpy = "^1.26.0"
+scikit-learn = "^1.4.0"
+onnxruntime = { version = "^1.16.0", optional = true }
+joblib = "^1.3.0"
+psutil = "^5.9.0"
+
+# MQTT
+paho-mqtt = "^1.6.1"
+
+# Database/Redis
+redis = "^5.0.0"
+sqlalchemy = {version = "^2.0.0", extras = ["asyncio"]}
+aiosqlite = "^0.19.0"
+
+# Logging
+structlog = "^23.1.0"
+
+# Internal packages
+ids-core = { path = "../../packages/ids-core", develop = true }
+ids-ml-plugins = { path = "../../packages/ids-ml-plugins", develop = true }
+ids-schemas = { path = "../../packages/ids-schemas", develop = true }
+ids-mqtt = { path = "../../packages/ids-mqtt", develop = true }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+ruff = "^0.1.0"
+mypy = "^1.6.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "scikit-learn",
+    "onnxruntime",
+    "numpy",
+    "paho-mqtt",
+]
+ignore_missing_imports = true

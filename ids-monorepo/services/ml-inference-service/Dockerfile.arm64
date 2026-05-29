@@ -1,0 +1,109 @@
+# ARM64 optimized Dockerfile for Raspberry Pi
+FROM python:3.11-slim-bookworm AS builder
+
+# Install system dependencies for ARM64
+# Use smaller package list for Raspberry Pi
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    cmake \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry with minimal dependencies
+RUN pip install --no-cache-dir poetry==1.7.0
+
+# Configure Poetry for minimal installation
+ENV POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=1 \
+    POETRY_VIRTUALENVS_CREATE=1 \
+    POETRY_CACHE_DIR=/tmp/poetry_cache
+
+# Set ARM64 specific optimizations
+ENV CFLAGS="-march=armv8-a -O2 -pipe"
+ENV CXXFLAGS="${CFLAGS}"
+
+# Copy project files
+WORKDIR /app
+COPY pyproject.toml poetry.lock ./
+
+# Install only required dependencies (skip optional ones to reduce size)
+RUN poetry install --only main --no-root --no-interaction --no-ansi
+
+# Copy source code
+COPY . .
+
+# Install the project (excluding GPU/optional dependencies)
+RUN poetry install --no-dev --no-interaction --no-ansi
+
+# Runtime stage for ARM64
+FROM python:3.11-slim-bookworm
+
+# Install minimal runtime dependencies for ARM64
+RUN apt-get update && apt-get install -y \
+    libgomp1 \
+    libblas3 \
+    liblapack3 \
+    libatlas3-base \
+    libgfortran5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy Python dependencies from builder
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# Create non-root user
+RUN groupadd -r ids && useradd -r -g ids ids
+
+# Create directories with proper permissions
+RUN mkdir -p /app /var/models /var/log /tmp/ml_cache && \
+    chown -R ids:ids /app /var/models /var/log /tmp/ml_cache
+
+# Set memory limits and optimizations for Raspberry Pi
+ENV OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    PYTHONHASHSEED=0
+
+# Set CPU affinity (adjust based on Raspberry Pi model)
+# For Raspberry Pi 4 (4 cores): 0,1,2,3
+# For Raspberry Pi 3/Zero (single core): 0
+ENV CPU_AFFINITY="0"
+
+# Memory optimization
+ENV PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32
+
+# Switch to non-root user
+USER ids
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code
+COPY --chown=ids:ids . .
+
+# Create entrypoint script for Raspberry Pi optimizations
+RUN echo '#!/bin/bash\n\
+# Set CPU affinity\n\
+if [ -n "$CPU_AFFINITY" ]; then\n\
+    echo "Setting CPU affinity to $CPU_AFFINITY"\n\
+    taskset -c $CPU_AFFINITY "$@"\n\
+else\n\
+    exec "$@"\n\
+fi' > /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Expose API port
+EXPOSE 8002
+
+# Health check with reduced frequency for edge devices
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8002/health || exit 1
+
+# Entrypoint with optimizations
+ENTRYPOINT ["/entrypoint.sh"]
+
+# Run the service with optimized settings
+CMD ["python", "-c", "\"import os; os.environ['ONNXRUNTIME_EXECUTION_PROVIDER'] = 'CPUExecutionProvider'; os.environ['OMP_NUM_THREADS'] = '1'; import uvicorn; uvicorn.run('ml_inference_service.main:main', host='0.0.0.0', port=8002, workers=1)\""]
