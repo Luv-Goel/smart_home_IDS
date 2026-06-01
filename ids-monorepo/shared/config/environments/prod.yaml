@@ -1,0 +1,20 @@
+app:
+  name: "Smart Home IDS (Prod)"
+  debug: false
+  log_level: "INFO"
+  reload: false
+
+database:
+  url: "postgresql+asyncpg://postgres:postgres@db:5432/ids_prod"
+  pool_size: 20
+  max_overflow: 50
+
+mqtt:
+  broker_url: "mqtts://mqtt-broker:8883"
+  client_id: "ids-core-prod"
+  keepalive: 60
+
+inference:
+  model_path: "models/ids_model_prod.onnx"
+  device: "cuda"
+  batch_size: 64

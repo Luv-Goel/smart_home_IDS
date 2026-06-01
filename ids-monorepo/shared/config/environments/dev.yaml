@@ -1,0 +1,20 @@
+app:
+  name: "Smart Home IDS (Dev)"
+  debug: true
+  log_level: "DEBUG"
+  reload: true
+
+database:
+  url: "postgresql+asyncpg://postgres:postgres@localhost:5432/ids_dev"
+  pool_size: 5
+  max_overflow: 10
+
+mqtt:
+  broker_url: "mqtt://localhost:1883"
+  client_id: "ids-core-dev"
+  keepalive: 60
+
+inference:
+  model_path: "models/ids_model_dev.onnx"
+  device: "cpu"
+  batch_size: 1
